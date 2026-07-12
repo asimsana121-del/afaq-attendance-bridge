@@ -88,7 +88,8 @@ $required = @(
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
 foreach ($item in $required) {
-  $found = $zip.Entries | Where-Object { $_.FullName -like "*$item" }
+  $pattern = ($item -replace '\\', '/')
+  $found = $zip.Entries | Where-Object { ($_.FullName -replace '\\', '/') -like "*$pattern" }
   if (-not $found) { throw "Missing in ZIP: $item" }
 }
 $zip.Dispose()
