@@ -67,8 +67,9 @@ foreach ($bat in $batScripts) {
 if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }
 Compress-Archive -Path $StageDir -DestinationPath $ZipPath -Force
 
-$hash = Get-FileHash -Path $ZipPath -Algorithm SHA256
-$hashLine = "$($hash.Hash)  AfaqAttendanceBridge-win-x64.zip"
+$hashBytes = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($ZipPath))
+$hashHex = [BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
+$hashLine = "$hashHex  AfaqAttendanceBridge-win-x64.zip"
 Set-Content -Path (Join-Path $Root 'dist-packages\SHA256SUMS.txt') -Value $hashLine -NoNewline
 
 Write-Host "==> Package ready: $ZipPath"
