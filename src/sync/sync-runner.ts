@@ -20,7 +20,13 @@ export class SyncRunner {
     const now = Date.now();
     if (now - this.lastHeartbeat >= this.config.heartbeatIntervalSeconds * 1000) {
       try {
-        await this.client.heartbeat();
+        const deviceStatuses = this.config.devices
+          .filter((d) => d.centralDeviceId)
+          .map((d) => ({
+            deviceId: d.centralDeviceId!,
+            status: 'online',
+          }));
+        await this.client.heartbeat(deviceStatuses.length ? deviceStatuses : undefined);
         this.lastHeartbeat = now;
       } catch (err) {
         this.db.logError('heartbeat', (err as Error).message);

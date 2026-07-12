@@ -11,9 +11,11 @@ $WinSwUrl = 'https://github.com/winsw/winsw/releases/download/v3.0.0-alpha.11/Wi
 
 Write-Host '==> npm run build'
 npm run build
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Write-Host '==> npm test'
 npm test
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 New-Item -ItemType Directory -Force -Path $BuildDir | Out-Null
 if (Test-Path (Join-Path $Root 'dist-packages\stage')) {
@@ -25,8 +27,13 @@ New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'data') | Out-Nul
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'node') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'service\winsw') | Out-Null
 
+Write-Host '==> pkg-fetch node20-win-x64'
+npm run package:fetch
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
 Write-Host '==> pkg executable'
 npm run package:exe
+if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
 Copy-Item (Join-Path $BuildDir 'AfaqAttendanceBridge.exe') (Join-Path $StageDir 'AfaqAttendanceBridge.exe')
 

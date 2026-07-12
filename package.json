@@ -13,7 +13,8 @@
     "start": "node dist/main.js run",
     "activate": "node dist/main.js activate",
     "status": "node dist/main.js status",
-    "test": "npm run build && node --test test/*.test.js",
+    "test": "npm run build && node --test test/bridge.test.js",
+    "package:fetch": "pkg-fetch node20-win-x64",
     "package:exe": "pkg dist/main.js --targets node20-win-x64 --output dist-packages/build/AfaqAttendanceBridge.exe --options max_old_space_size=4096",
     "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
   },
@@ -26,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^22.10.2",
     "pkg": "^5.8.1",
+    "pkg-fetch": "^3.4.3",
     "typescript": "^5.7.2"
   }
 }
