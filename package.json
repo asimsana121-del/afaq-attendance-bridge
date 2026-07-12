@@ -1,0 +1,31 @@
+{
+  "name": "afaq-attendance-bridge",
+  "version": "0.1.0",
+  "description": "Afaq Attendance Bridge — outbound sync from Hikvision devices to central Afaq Finance",
+  "private": false,
+  "license": "UNLICENSED",
+  "main": "dist/main.js",
+  "bin": {
+    "afaq-attendance-bridge": "dist/main.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/main.js run",
+    "activate": "node dist/main.js activate",
+    "status": "node dist/main.js status",
+    "test": "npm run build && node --test test/*.test.js",
+    "package:exe": "pkg dist/main.js --targets node20-win-x64 --output dist-packages/build/AfaqAttendanceBridge.exe --options max_old_space_size=4096",
+    "package:windows": "powershell -ExecutionPolicy Bypass -File scripts/package-windows.ps1"
+  },
+  "pkg": {
+    "assets": [
+      "package.json"
+    ],
+    "outputPath": "dist-packages/build"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "pkg": "^5.8.1",
+    "typescript": "^5.7.2"
+  }
+}

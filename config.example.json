@@ -1,0 +1,29 @@
+{
+  "centralApiBaseUrl": "https://your-tenant-domain-or-api-domain/v1",
+  "tenantSlug": "tfn",
+  "activationCode": "PASTE_ACTIVATION_CODE_HERE",
+  "bridgeName": "Main Office Bridge",
+  "timezone": "Asia/Kabul",
+  "syncIntervalSeconds": 60,
+  "heartbeatIntervalSeconds": 120,
+  "maxBatchSize": 100,
+  "devices": [
+    {
+      "centralDeviceId": 1,
+      "name": "Main Office Hikvision",
+      "vendor": "hikvision",
+      "model": "DS-K1A802AEF-B",
+      "localIp": "192.168.1.201",
+      "port": 80,
+      "username": "admin",
+      "password": "CHANGE_ME",
+      "syncMode": "isapi",
+      "branchCode": "MAIN"
+    }
+  ],
+  "isapi": {
+    "eventsPath": "/ISAPI/AccessControl/AcsEvent?format=json",
+    "deviceInfoPath": "/ISAPI/System/deviceInfo",
+    "usersPath": "/ISAPI/AccessControl/UserInfo/Search?format=json"
+  }
+}

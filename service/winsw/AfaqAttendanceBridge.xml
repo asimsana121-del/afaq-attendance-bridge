@@ -1,0 +1,17 @@
+<service>
+  <id>AfaqAttendanceBridge</id>
+  <name>Afaq Attendance Bridge</name>
+  <description>Syncs Hikvision attendance punches to Afaq Finance (outbound HTTPS)</description>
+  <executable>%BASE%\AfaqAttendanceBridge.exe</executable>
+  <arguments>run</arguments>
+  <workingdirectory>%BASE%</workingdirectory>
+  <logpath>%BASE%\logs</logpath>
+  <log mode="roll-by-size">
+    <sizeThreshold>10240</sizeThreshold>
+    <keepFiles>8</keepFiles>
+  </log>
+  <startmode>Automatic</startmode>
+  <delayedAutoStart>true</delayedAutoStart>
+  <stoptimeout>15 sec</stoptimeout>
+  <onfailure action="restart" delay="30 sec"/>
+</service>

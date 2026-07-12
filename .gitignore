@@ -1,0 +1,16 @@
+node_modules/
+dist-packages/
+dist/
+data/
+logs/
+config.json
+bridge-store.json
+*.log
+*.db
+.env
+.env.*
+secrets/
+*.rar
+*.zip
+.DS_Store
+Thumbs.db
