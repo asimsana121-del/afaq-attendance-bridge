@@ -27,7 +27,7 @@ New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'data') | Out-Nul
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'node') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'service\winsw') | Out-Null
 
-Write-Host '==> pkg-fetch node20-win-x64'
+Write-Host '==> pkg-fetch node18-win-x64'
 npm run package:fetch
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
