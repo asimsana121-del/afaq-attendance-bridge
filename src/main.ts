@@ -1,4 +1,6 @@
 #!/usr/bin/env node
+import { existsSync, appendFileSync, mkdirSync } from 'fs';
+import { join } from 'path';
 import { loadConfig, getDataDir, getMachineId } from './config';
 import { BridgeDb } from './db/bridge-store';
 import { createClientFromConfig } from './central-api-client';
@@ -6,6 +8,67 @@ import { SyncRunner } from './sync/sync-runner';
 import { formatValidateOutput, validateConfig } from './validate-config';
 import { formatTestDeviceOutput, testDeviceExitCode, testDevices } from './test-device';
 import { getBridgeVersion } from './version';
+
+function appDir(): string {
+  return process.cwd();
+}
+
+function bootLogPath(): string {
+  return join(appDir(), 'logs', 'service-boot.log');
+}
+
+function writeBootLog(line: string): void {
+  try {
+    const logsDir = join(appDir(), 'logs');
+    if (!existsSync(logsDir)) mkdirSync(logsDir, { recursive: true });
+    appendFileSync(bootLogPath(), `${new Date().toISOString()} ${line}\n`, 'utf8');
+  } catch {
+    /* best-effort */
+  }
+  try {
+    console.log(line);
+  } catch {
+    /* ignore */
+  }
+}
+
+function logFatal(kind: string, err: unknown): void {
+  const msg = String((err as Error)?.message ?? err).replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]');
+  const stack = (err as Error)?.stack ? String((err as Error).stack) : '';
+  writeBootLog(`[FATAL] ${kind}: ${msg}`);
+  if (stack) writeBootLog(stack.split('\n').slice(0, 20).join('\n'));
+  try {
+    console.error(`[bridge] fatal ${kind}:`, msg);
+  } catch {
+    /* ignore */
+  }
+}
+
+function installProcessHandlers(): void {
+  process.on('uncaughtException', (err) => {
+    logFatal('uncaughtException', err);
+    process.exit(1);
+  });
+  process.on('unhandledRejection', (reason) => {
+    logFatal('unhandledRejection', reason);
+    process.exit(1);
+  });
+}
+
+function logServiceBoot(): void {
+  const cwd = process.cwd();
+  const cfg = join(cwd, 'config.json');
+  const data = getDataDir();
+  const logs = join(cwd, 'logs');
+  writeBootLog('SERVICE_BOOT_START');
+  writeBootLog(`version=${getBridgeVersion()}`);
+  writeBootLog(`appDir=${cwd}`);
+  writeBootLog(`cwd=${cwd}`);
+  writeBootLog(`argv=${JSON.stringify(process.argv)}`);
+  writeBootLog(`configExists=${existsSync(cfg)}`);
+  writeBootLog(`dataDirExists=${existsSync(data)}`);
+  writeBootLog(`logsDirExists=${existsSync(logs)}`);
+}
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
@@ -64,6 +127,7 @@ async function cmdRun(args: Record<string, string>): Promise<void> {
   const apiBase = db.getStatus('apiBaseUrl') ?? config.centralApiBaseUrl;
   const client = createClientFromConfig({ ...config, centralApiBaseUrl: apiBase }, token);
   const runner = new SyncRunner(config, db, client, tenantId);
+  // Infinite sync loop — empty event batches must never exit the process.
   await runner.loop();
 }
 
@@ -104,6 +168,9 @@ async function cmdTestDevice(args: Record<string, string | boolean>): Promise<vo
 }
 
 async function main(): Promise<void> {
+  installProcessHandlers();
+  logServiceBoot();
+
   const [, , command, ...rest] = process.argv;
   const args = parseArgs(rest);
   switch (command) {
@@ -136,7 +203,6 @@ Usage:
 }
 
 main().catch((err) => {
-  const msg = String(err.message ?? err).replace(/Bearer\s+\S+/gi, 'Bearer [REDACTED]');
-  console.error('[bridge] fatal:', msg);
+  logFatal('main', err);
   process.exit(1);
 });

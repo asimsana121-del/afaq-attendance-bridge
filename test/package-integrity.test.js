@@ -20,6 +20,7 @@ const REQUIRED_PATHS = [
   'config.example.json',
   'README_INSTALL.md',
   'run-once.bat',
+  'service-run.bat',
   'install-service.bat',
   'uninstall-service.bat',
   'status.bat',
@@ -129,18 +130,25 @@ describe('package integrity', () => {
     assert.doesNotMatch(bat, /echo\.\s*\r?\necho SUCCESS: Afaq Attendance Bridge service installed and started\./);
   });
 
-  it('WinSW XML uses exe run with BASE and logs', () => {
+  it('WinSW XML uses service-run.bat via app-root relative BASE', () => {
     const xml = fs.readFileSync(
       path.join(ROOT, 'service', 'winsw', 'AfaqAttendanceBridge.xml'),
       'utf8',
     );
-    assert.match(xml, /AfaqAttendanceBridge\.exe/);
-    assert.match(xml, /<arguments>run<\/arguments>/);
-    assert.match(xml, /%BASE%/);
+    assert.match(xml, /cmd\.exe/);
+    assert.match(xml, /service-run\.bat/);
+    assert.match(xml, /%BASE%\\\.\.\\\.\./);
+    assert.match(xml, /workingdirectory/);
     assert.match(xml, /logs/);
     assert.match(xml, /10485760/);
+    assert.doesNotMatch(xml, /<executable>%BASE%\\AfaqAttendanceBridge\.exe<\/executable>/);
   });
-
+  it('service-run.bat cds to app root and runs exe without pause', () => {
+    const bat = fs.readFileSync(path.join(ROOT, 'service-run.bat'), 'utf8');
+    assert.match(bat, /cd \/d "%~dp0"/);
+    assert.match(bat, /AfaqAttendanceBridge\.exe run/);
+    assert.doesNotMatch(bat, /\bpause\b/i);
+  });
   it('primary executable prints usage with validate-config', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
     if (!fs.existsSync(ZIP_PATH)) return;
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aab-exe-'));

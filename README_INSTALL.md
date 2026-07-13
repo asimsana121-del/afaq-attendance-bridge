@@ -42,7 +42,7 @@ Download **AfaqAttendanceBridge-win-x64.zip** from:
 
 https://github.com/asimsana121-del/afaq-attendance-bridge/releases
 
-Use the latest release (v0.1.5 or newer).
+Use the latest release (v0.1.6 or newer).
 
 ## 2. Extract
 
@@ -119,10 +119,12 @@ If errors appear, run `AfaqAttendanceBridge.exe validate-config` and check `logs
 
 ## 6. Install Windows Service
 
-1. Confirm `run-once.bat` worked.
+1. Confirm `run-once.bat` worked (console sync loop starts).
 2. Right-click **`install-service.bat`** → **Run as administrator**.
-3. The script validates `config.json`, installs the service, and only prints **SUCCESS** if status is **RUNNING**.
+3. The script validates `config.json`, installs the service (WinSW → `service-run.bat` → `AfaqAttendanceBridge.exe run`), and only prints **SUCCESS** if status is **RUNNING**.
 4. Open **Services** (`services.msc`) or run **`status.bat`** to confirm.
+
+If the service shows **WIN32_EXIT_CODE 1064**, use **v0.1.6+** (older packs pointed WinSW at the wrong folder). Check `logs\service-boot.log` and `logs\service.stderr.log`.
 
 ## 7. Map employees
 
@@ -139,6 +141,7 @@ Check **HRM → Device punches** and **Attendance sync** for incoming events.
 | File | Purpose |
 |------|---------|
 | `run-once.bat` | Test run in console (before service install) |
+| `service-run.bat` | Non-interactive service entry (used by WinSW) |
 | `activate.bat` | Activate only (exchange activation code) |
 | `status.bat` | Service status + recent log lines |
 | `install-service.bat` | Install & start Windows Service (admin) |
@@ -164,12 +167,15 @@ This is **not** an Afaq central API failure. The Windows service keeps running a
 
 ## Troubleshooting WIN32_EXIT_CODE 1064
 
-If the service is **STOPPED** with exit code **1064**, the bridge process crashed during startup:
+If the service is **STOPPED** with exit code **1064**, the bridge process exited during startup:
 
-1. Run **`run-once.bat`** to see the error in the console window.
-2. Check **`logs\AfaqAttendanceBridgeSvc.err.log`** (last lines).
-3. Run **`AfaqAttendanceBridge.exe validate-config --deep`** to check `config.json`.
-4. Fix config, run **`uninstall-service.bat`**, then **`install-service.bat`** again.
+1. Confirm you extracted **v0.1.6+** with `service-run.bat` next to `AfaqAttendanceBridge.exe`.
+2. Run **`run-once.bat`** — if console works, the service pack path was usually wrong in older releases.
+3. Check **`logs\service-boot.log`**, **`logs\service.stderr.log`**, **`logs\AfaqAttendanceBridgeSvc.err.log`**.
+4. Run **`AfaqAttendanceBridge.exe validate-config --deep`**.
+5. Run **`uninstall-service.bat`**, then **`install-service.bat`** again as Administrator.
+
+WinSW’s `%BASE%` is `service\winsw\`. The service must start via `service-run.bat` in the **app root** so `config.json` and the exe are found.
 
 ## Security
 

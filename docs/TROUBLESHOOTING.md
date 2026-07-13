@@ -31,10 +31,14 @@ This means **device authentication failed**, not Afaq API failure.
 ## Service will not start
 
 1. Run `run-once.bat` first — fix errors in console.
-2. Check `logs/` for WinSW output.
+2. Check `logs/` for:
+   - `AfaqAttendanceBridgeSvc.out.log` / `AfaqAttendanceBridgeSvc.err.log` (WinSW)
+   - `service.stdout.log` / `service.stderr.log` (`service-run.bat`)
+   - `service-boot.log` (process boot diagnostics)
 3. Run `status.bat` as administrator.
+4. Use bridge **v0.1.6+** if console works but service exits with **1064** (WinSW `%BASE%` / path fix).
 
-**Note:** Device HTTP 401 does **not** stop the Windows service. The bridge keeps retrying and reports the device as error/offline on the next heartbeat. If the service itself stops, the crash is something else (config/API).
+**Note:** Device HTTP 401 does **not** stop the Windows service. The bridge keeps retrying and reports the device as error/offline on the next heartbeat. If the service itself stops, the crash is something else (config/API/packaging).
 
 ## Punches not appearing in Afaq
 

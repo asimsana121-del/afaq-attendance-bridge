@@ -72,7 +72,7 @@ Copy-Item (Join-Path $Root 'config.example.json') (Join-Path $StageDir 'config.e
 Copy-Item (Join-Path $Root 'README_INSTALL.md') (Join-Path $StageDir 'README_INSTALL.md')
 Copy-Item (Join-Path $Root 'service\winsw\AfaqAttendanceBridge.xml') (Join-Path $StageDir 'service\winsw\AfaqAttendanceBridge.xml')
 
-$batScripts = @('run-once.bat', 'activate.bat', 'status.bat', 'install-service.bat', 'uninstall-service.bat')
+$batScripts = @('run-once.bat', 'activate.bat', 'status.bat', 'install-service.bat', 'uninstall-service.bat', 'service-run.bat')
 foreach ($bat in $batScripts) {
   Copy-Item (Join-Path $Root $bat) (Join-Path $StageDir $bat)
 }
@@ -103,6 +103,7 @@ $required = @(
   'config.example.json',
   'README_INSTALL.md',
   'run-once.bat',
+  'service-run.bat',
   'install-service.bat',
   'uninstall-service.bat',
   'status.bat',

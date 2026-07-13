@@ -23,6 +23,13 @@ if not exist "%APP_DIR%service\winsw\AfaqAttendanceBridge.xml" (
   exit /b 1
 )
 
+if not exist "%APP_DIR%service-run.bat" (
+  echo ERROR: service-run.bat not found in app root.
+  echo Re-download AfaqAttendanceBridge-win-x64.zip from GitHub Releases ^(v0.1.6+^).
+  pause
+  exit /b 1
+)
+
 set "HAS_EXE=0"
 set "HAS_NODE=0"
 if exist "%APP_DIR%AfaqAttendanceBridge.exe" set "HAS_EXE=1"
@@ -62,6 +69,7 @@ copy /Y "%APP_DIR%service\winsw\WinSW-x64.exe" "%APP_DIR%service\winsw\AfaqAtten
 copy /Y "%APP_DIR%service\winsw\AfaqAttendanceBridge.xml" "%APP_DIR%service\winsw\AfaqAttendanceBridgeSvc.xml" >nul
 
 cd /d "%APP_DIR%service\winsw"
+echo Installing service...
 AfaqAttendanceBridgeSvc.exe install AfaqAttendanceBridgeSvc.xml
 if errorlevel 1 (
   echo ERROR: Service install failed.
@@ -70,6 +78,8 @@ if errorlevel 1 (
   exit /b 1
 )
 
+echo Service installed successfully.
+echo Starting service...
 AfaqAttendanceBridgeSvc.exe start AfaqAttendanceBridgeSvc.xml
 if errorlevel 1 (
   echo ERROR: Service start command failed.
@@ -99,30 +109,32 @@ exit /b 0
 :ShowFailure
 echo.
 echo ERROR: Service installed but failed to start.
+echo Failed to start the service.
 echo.
 sc query AfaqAttendanceBridge
 echo.
 echo Logs folder: %APP_DIR%logs\
 call :ShowLogs
 echo.
+echo Tip: WinSW %%BASE%% is service\winsw — service-run.bat must live in the app root ^(v0.1.6+^).
 echo Run run-once.bat first to see the direct console error.
 exit /b 1
 
 :ShowLogs
-if exist "%APP_DIR%logs\AfaqAttendanceBridgeSvc.err.log" (
-  echo --- Last 80 lines of AfaqAttendanceBridgeSvc.err.log ---
-  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridgeSvc.err.log' -Tail 80"
-  goto :eof
+set "ANY=0"
+call :TailIfExists "%APP_DIR%logs\AfaqAttendanceBridgeSvc.err.log"
+call :TailIfExists "%APP_DIR%logs\AfaqAttendanceBridgeSvc.out.log"
+call :TailIfExists "%APP_DIR%logs\service.stderr.log"
+call :TailIfExists "%APP_DIR%logs\service.stdout.log"
+call :TailIfExists "%APP_DIR%logs\service-boot.log"
+if "%ANY%"=="0" echo No service log files found yet.
+goto :eof
+
+:TailIfExists
+if exist "%~1" (
+  set "ANY=1"
+  echo --- Last 80 lines of %~nx1 ---
+  powershell -NoProfile -Command "Get-Content -LiteralPath '%~1' -Tail 80"
+  echo.
 )
-if exist "%APP_DIR%logs\AfaqAttendanceBridgeSvc.out.log" (
-  echo --- Last 80 lines of AfaqAttendanceBridgeSvc.out.log ---
-  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridgeSvc.out.log' -Tail 80"
-  goto :eof
-)
-if exist "%APP_DIR%logs\AfaqAttendanceBridge.err.log" (
-  echo --- Last 80 lines of AfaqAttendanceBridge.err.log ---
-  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridge.err.log' -Tail 80"
-  goto :eof
-)
-echo No service log files found yet.
 goto :eof

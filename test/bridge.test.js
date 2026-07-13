@@ -216,9 +216,15 @@ describe('attendance-bridge', () => {
     assert.match(src, /getLastDeviceError/);
   });
 
-  it('package version is 0.1.5', () => {
+  it('package version is 0.1.6', () => {
     const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
-    assert.equal(pkg.version, '0.1.5');
+    assert.equal(pkg.version, '0.1.6');
+  });
+  it('main registers crash handlers and SERVICE_BOOT_START', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.ts'), 'utf8');
+    assert.match(src, /SERVICE_BOOT_START/);
+    assert.match(src, /uncaughtException/);
+    assert.match(src, /unhandledRejection/);
   });
 
   it('config.example has authMode auto and eventsMethod POST', () => {

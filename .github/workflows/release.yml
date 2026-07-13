@@ -27,28 +27,20 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Afaq Attendance Bridge ${{ github.ref_name }} — Hikvision ISAPI auth fix
+          name: Afaq Attendance Bridge ${{ github.ref_name }} — WinSW service startup fix
           body: |
             ## Fixes
-            - Hikvision Digest Auth `authMode: auto` (also `digest` / `basic`)
-            - POST AcsEvent polling (`eventsMethod: POST`) with capability probing
-            - `test-device` command with DEVICE_* diagnosis codes
-            - Device HTTP 401 no longer treated as a service crash; sync loop retries
-            - Stronger `validate-config --deep` (TCP + ISAPI auth + events)
-            - DS-K1A802AEF-B config defaults
+            - Fixes WinSW service startup **1064** when console mode works
+            - Adds `service-run.bat` (same `AfaqAttendanceBridge.exe run` as run-once, app-root cwd)
+            - WinSW `%BASE%` corrected: service runs from app root via `cmd.exe /c service-run.bat`
+            - Immediate service boot logs (`service-boot.log`, `service.stdout.log`)
+            - Top-level crash logging (uncaughtException / unhandledRejection)
+            - No monorepo redeploy required
 
-            ## config.json (device)
-            ```json
-            "authMode": "auto",
-            "eventsMethod": "POST",
-            "centralApiBaseUrl": "https://api.tofan.dev/v1"
-            ```
-
-            ## Diagnose
-            ```
-            AfaqAttendanceBridge.exe test-device
-            AfaqAttendanceBridge.exe validate-config --deep
-            ```
+            ## Install
+            1. Confirm `run-once.bat` works
+            2. `uninstall-service.bat` (if old service present)
+            3. `install-service.bat` as Administrator
 
             Download **AfaqAttendanceBridge-win-x64.zip** only — do NOT use Source code (zip)
           files: |

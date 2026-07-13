@@ -2,10 +2,11 @@
   <id>AfaqAttendanceBridge</id>
   <name>Afaq Attendance Bridge</name>
   <description>Syncs Hikvision attendance punches to Afaq Finance (outbound HTTPS)</description>
-  <executable>%BASE%\AfaqAttendanceBridge.exe</executable>
-  <arguments>run</arguments>
-  <workingdirectory>%BASE%</workingdirectory>
-  <logpath>%BASE%\logs</logpath>
+  <!-- %BASE% is service\winsw (wrapper dir). App root is %BASE%\..\.. -->
+  <executable>cmd.exe</executable>
+  <arguments>/c ""%BASE%\..\..\service-run.bat""</arguments>
+  <workingdirectory>%BASE%\..\..</workingdirectory>
+  <logpath>%BASE%\..\..\logs</logpath>
   <log mode="roll-by-size">
     <sizeThreshold>10485760</sizeThreshold>
     <keepFiles>8</keepFiles>
