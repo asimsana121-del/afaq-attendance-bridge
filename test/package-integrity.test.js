@@ -65,12 +65,11 @@ function listRelativeFiles(dir, base = dir) {
 }
 
 function hasPath(files, required) {
-  const norm = required.replace(/\\/g, '/');
-  if (norm.endsWith('/')) {
-    const dir = norm.slice(0, -1);
-    return files.some((f) => f === dir || f === norm || f.startsWith(dir + '/'));
-  }
-  return files.some((f) => f === norm || f.endsWith('/' + norm));
+  const norm = required.replace(/\\/g, '/').replace(/\/$/, '');
+  return files.some((f) => {
+    const trimmed = f.replace(/\/$/, '');
+    return trimmed === norm || f === `${norm}/` || f.startsWith(`${norm}/`);
+  });
 }
 
 describe('package integrity', () => {
