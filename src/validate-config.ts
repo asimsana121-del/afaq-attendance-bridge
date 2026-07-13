@@ -1,6 +1,12 @@
 import { existsSync, readFileSync } from 'fs';
 import { connect } from 'net';
 import { join } from 'path';
+import {
+  buildActivateUrl,
+  formatCsrfMisconfigError,
+  isCsrfBlockedResponse,
+  validateCentralApiUrl,
+} from './api-url-validation';
 import { createClientFromConfig } from './central-api-client';
 import { getDataDir, type DeviceConfig } from './config';
 import { BridgeDb } from './db/bridge-store';
@@ -96,11 +102,43 @@ function validateDevice(device: DeviceConfig, index: number, errors: string[]): 
   }
 }
 
-async function fetchWithTimeout(url: string, timeoutMs: number): Promise<Response> {
+async function probeBridgeActivateEndpoint(apiBase: string): Promise<string | null> {
+  const url = buildActivateUrl(apiBase);
+  try {
+    const res = await fetchWithTimeout(url, 8000, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify({ activationCode: '__bridge_validate__' }),
+    });
+    const body = await res.json().catch(() => ({}));
+    const message =
+      typeof body === 'object' && body && 'message' in body
+        ? String((body as { message: unknown }).message ?? '')
+        : '';
+    if (isCsrfBlockedResponse(res.status, message)) {
+      return formatCsrfMisconfigError(apiBase);
+    }
+    if (res.status === 403 && /csrf/i.test(message)) {
+      return formatCsrfMisconfigError(apiBase);
+    }
+    if (res.status >= 500) {
+      return 'ERROR: central API bridge activate endpoint returned server error (deep check)';
+    }
+    return null;
+  } catch (err) {
+    return `ERROR: bridge activate endpoint probe failed: ${String((err as Error).message ?? err)}`;
+  }
+}
+
+async function fetchWithTimeout(
+  url: string,
+  timeoutMs: number,
+  init?: RequestInit,
+): Promise<Response> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(url, { signal: controller.signal });
+    return await fetch(url, { credentials: 'omit', ...init, signal: controller.signal });
   } finally {
     clearTimeout(timer);
   }
@@ -144,6 +182,10 @@ export async function validateConfig(options: ValidateConfigOptions = {}): Promi
     errors.push('ERROR: centralApiBaseUrl is required');
   } else if (!isValidUrl(api.replace(/\/$/, ''))) {
     errors.push('ERROR: centralApiBaseUrl must be a valid http(s) URL');
+  } else {
+    const urlCheck = validateCentralApiUrl(api);
+    errors.push(...urlCheck.errors);
+    warnings.push(...urlCheck.warnings);
   }
 
   if (!raw.tenantSlug || !String(raw.tenantSlug).trim()) {
@@ -189,6 +231,9 @@ export async function validateConfig(options: ValidateConfigOptions = {}): Promi
       if (!reachable) {
         errors.push('ERROR: central API is not reachable (deep check)');
       }
+
+      const csrfErr = await probeBridgeActivateEndpoint(apiBase);
+      if (csrfErr) errors.push(csrfErr);
     }
 
     const prevCwd = process.cwd();

@@ -112,4 +112,34 @@ describe('attendance-bridge', () => {
     assert.match(src, /validate-config/);
     assert.match(src, /cmdValidateConfig/);
   });
+
+  it('validateCentralApiUrl rejects BFF URLs', () => {
+    const { validateCentralApiUrl } = require('../dist/api-url-validation');
+    const result = validateCentralApiUrl('https://tenant.example.com/api/bff');
+    assert.ok(result.errors.some((e) => /web app\/BFF/i.test(e)));
+  });
+
+  it('validateCentralApiUrl requires /v1 suffix', () => {
+    const { validateCentralApiUrl } = require('../dist/api-url-validation');
+    const result = validateCentralApiUrl('https://tenant.example.com');
+    assert.ok(result.errors.some((e) => /\/v1/i.test(e)));
+  });
+
+  it('formatBridgeApiError detects CSRF misconfiguration', () => {
+    const { formatBridgeApiError } = require('../dist/central-api-client');
+    const msg = formatBridgeApiError(
+      403,
+      { message: 'CSRF token missing or invalid' },
+      'https://tenant.example.com/v1',
+      'fallback',
+    );
+    assert.match(msg, /browser-protected endpoint/i);
+    assert.match(msg, /centralApiBaseUrl/i);
+    assert.match(msg, /\/v1\/hrm\/attendance\/bridges\/activate/);
+  });
+
+  it('central-api-client uses credentials omit', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'central-api-client.ts'), 'utf8');
+    assert.match(src, /credentials:\s*'omit'/);
+  });
 });

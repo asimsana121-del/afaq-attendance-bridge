@@ -14,6 +14,19 @@ if not exist "%APP_DIR%config.json" (
   exit /b 1
 )
 
+echo Validating config.json (deep check)...
+if exist "%APP_DIR%AfaqAttendanceBridge.exe" (
+  "%APP_DIR%AfaqAttendanceBridge.exe" validate-config --deep
+) else if exist "%APP_DIR%node\node.exe" if exist "%APP_DIR%dist\main.js" (
+  "%APP_DIR%node\node.exe" "%APP_DIR%dist\main.js" validate-config --deep
+)
+if errorlevel 1 (
+  echo.
+  echo ERROR: Config validation failed. Fix config.json before running the bridge.
+  pause
+  exit /b 1
+)
+
 set "EXIT_CODE=0"
 if exist "%APP_DIR%AfaqAttendanceBridge.exe" (
   "%APP_DIR%AfaqAttendanceBridge.exe" run
