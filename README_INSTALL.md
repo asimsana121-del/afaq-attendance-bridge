@@ -42,7 +42,7 @@ Download **AfaqAttendanceBridge-win-x64.zip** from:
 
 https://github.com/asimsana121-del/afaq-attendance-bridge/releases
 
-Use the latest release (v0.1.2 or newer).
+Use the latest release (v0.1.3 or newer).
 
 ## 2. Extract
 
@@ -61,7 +61,7 @@ After extract, `run-once.bat` and `AfaqAttendanceBridge.exe` must be **directly*
 
 | Field | What to enter |
 |-------|----------------|
-| `centralApiBaseUrl` | Your Afaq Finance API URL, e.g. `https://demo.tofan.dev/v1` |
+| `centralApiBaseUrl` | **Direct API base URL** — see [Central API URL](#central-api-url) below |
 | `tenantSlug` | Your tenant code (from Afaq admin) |
 | `activationCode` | One-time code from **Superadmin → Attendance Devices** or **HRM → Attendance devices** |
 | `devices[].localIp` | Hikvision device IP on your office LAN |
@@ -71,6 +71,21 @@ After extract, `run-once.bat` and `AfaqAttendanceBridge.exe` must be **directly*
 
 **Never share** `config.json` — it contains device passwords.
 
+### Central API URL
+
+Set `centralApiBaseUrl` to the **direct NestJS API** (machine-to-machine). Do **not** use the tenant web app or browser BFF.
+
+| Use | Example |
+|-----|---------|
+| Correct | `https://api.finance.tofan-tracker.com/v1` |
+| Also OK (if your deployment exposes `/v1` on the tenant host) | `https://tfn.tofan.dev/v1` |
+| Wrong | `https://tenant.example.com` (missing `/v1`) |
+| Wrong | `https://tenant.example.com/api/bff` |
+
+Optional environment override: `BRIDGE_CENTRAL_API_BASE_URL=https://api.your-domain.com/v1`
+
+If you see **CSRF token missing or invalid**, the URL points at a browser-protected endpoint — switch to the API base URL above.
+
 ## 4. First test (console)
 
 Double-click **`run-once.bat`**.
@@ -78,7 +93,7 @@ Double-click **`run-once.bat`**.
 Optional: validate config without starting sync:
 
 ```
-AfaqAttendanceBridge.exe validate-config
+AfaqAttendanceBridge.exe validate-config --deep
 ```
 
 You should see:
@@ -134,7 +149,7 @@ If the service is **STOPPED** with exit code **1064**, the bridge process crashe
 
 1. Run **`run-once.bat`** to see the error in the console window.
 2. Check **`logs\AfaqAttendanceBridgeSvc.err.log`** (last lines).
-3. Run **`AfaqAttendanceBridge.exe validate-config`** to check `config.json`.
+3. Run **`AfaqAttendanceBridge.exe validate-config --deep`** to check `config.json`.
 4. Fix config, run **`uninstall-service.bat`**, then **`install-service.bat`** again.
 
 ## Security

@@ -44,11 +44,11 @@ if not exist "%APP_DIR%config.json" (
 if not exist "%APP_DIR%logs" mkdir "%APP_DIR%logs"
 if not exist "%APP_DIR%data" mkdir "%APP_DIR%data"
 
-echo Validating config.json...
+echo Validating config.json (deep check)...
 if "%HAS_EXE%"=="1" (
-  "%APP_DIR%AfaqAttendanceBridge.exe" validate-config
+  "%APP_DIR%AfaqAttendanceBridge.exe" validate-config --deep
 ) else (
-  "%APP_DIR%node\node.exe" "%APP_DIR%dist\main.js" validate-config
+  "%APP_DIR%node\node.exe" "%APP_DIR%dist\main.js" validate-config --deep
 )
 if errorlevel 1 (
   echo.
