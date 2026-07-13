@@ -107,7 +107,7 @@ $required = @(
   'uninstall-service.bat',
   'status.bat',
   'data/.gitkeep',
-  'logs/.gitkeep',
+  'logs/.gitkeep'
 )
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
