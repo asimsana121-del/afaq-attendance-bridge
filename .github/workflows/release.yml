@@ -27,21 +27,23 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Afaq Attendance Bridge ${{ github.ref_name }} — Service startup diagnostics fix
+          name: Afaq Attendance Bridge ${{ github.ref_name }} — CSRF / API URL fix
           body: |
             ## Fixes
-            - Fixes install-service.bat false SUCCESS when service fails to start
-            - Adds config.json preflight checks before installing service
-            - Adds validate-config CLI command
-            - Ensures WinSW starts AfaqAttendanceBridge.exe run with correct working directory
-            - Captures service logs under logs/
-            - Improves run-once/status diagnostics
-            - Adds package integrity checks for runtime/service XML
+            - Clear error when bridge hits browser-protected (CSRF) endpoints
+            - `validate-config --deep` probes activate endpoint before run
+            - Rejects `/api/bff` and missing `/v1` in `centralApiBaseUrl`
+            - Documents correct direct API base URL for machine-to-machine auth
+            - `credentials: omit` on all central API requests
+
+            ## Requires
+            - Backend hotfix deployed (bridge CSRF exemption on API) — Portainer `BUILD_COMMIT` ≥ tracker_update `56aab24`
+            - `config.json` field `centralApiBaseUrl` must be `https://api.<domain>/v1` (not tenant web/BFF URL)
 
             ## Install order
             1. Extract to C:\AfaqAttendanceBridge (flat root)
-            2. Copy config.example.json to config.json and edit
-            3. Run run-once.bat first
+            2. Copy config.example.json to config.json and edit `centralApiBaseUrl`
+            3. Run run-once.bat first (runs validate-config --deep)
             4. Run install-service.bat as Administrator
             5. Confirm service is RUNNING
 
