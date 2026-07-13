@@ -86,6 +86,14 @@ function runExeFail(exe, args, cwd) {
   }
 }
 
+function rmTmp(dir) {
+  try {
+    fs.rmSync(dir, { recursive: true, force: true, maxRetries: 5, retryDelay: 200 });
+  } catch {
+    /* best-effort cleanup on Windows CI */
+  }
+}
+
 describe('package integrity', () => {
   it('ZIP exists and contains required flat-root paths', () => {
     assert.ok(fs.existsSync(ZIP_PATH), `Missing package: ${ZIP_PATH}`);
@@ -109,7 +117,7 @@ describe('package integrity', () => {
       assert.ok(hasPath(files, 'data'), 'data/ directory missing in ZIP');
       assert.ok(hasPath(files, 'logs'), 'logs/ directory missing in ZIP');
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
@@ -143,7 +151,7 @@ describe('package integrity', () => {
       assert.match(out, /Afaq Attendance Bridge/i);
       assert.match(out, /validate-config/i);
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
@@ -157,7 +165,7 @@ describe('package integrity', () => {
       assert.notEqual(code, 0);
       assert.match(out, /config\.json not found/i);
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
@@ -179,7 +187,7 @@ describe('package integrity', () => {
       const out = runExe(exe, ['validate-config'], tmp);
       assert.match(out, /CONFIG OK/);
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
@@ -201,7 +209,7 @@ describe('package integrity', () => {
       const out = runExe(exe, ['status'], tmp);
       assert.match(out, /activated|queueDepth|tenantId/i);
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
@@ -220,7 +228,7 @@ describe('package integrity', () => {
         assert.ok(combined.length > 0, 'node fallback should produce output');
       }
     } finally {
-      fs.rmSync(tmp, { recursive: true, force: true });
+      rmTmp(tmp);
     }
   });
 
