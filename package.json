@@ -1,6 +1,6 @@
 {
   "name": "afaq-attendance-bridge",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "description": "Afaq Attendance Bridge — outbound sync from Hikvision devices to central Afaq Finance",
   "private": false,
   "license": "UNLICENSED",

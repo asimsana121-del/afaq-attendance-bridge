@@ -3,13 +3,15 @@ import { loadConfig, getDataDir, getMachineId } from './config';
 import { BridgeDb } from './db/bridge-store';
 import { createClientFromConfig } from './central-api-client';
 import { SyncRunner } from './sync/sync-runner';
+import { formatValidateOutput, validateConfig } from './validate-config';
 
-function parseArgs(argv: string[]): Record<string, string> {
-  const out: Record<string, string> = {};
+function parseArgs(argv: string[]): Record<string, string | boolean> {
+  const out: Record<string, string | boolean> = {};
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--code' && argv[i + 1]) out.code = argv[++i];
     if (argv[i] === '--api' && argv[i + 1]) out.api = argv[++i];
     if (argv[i] === '--config' && argv[i + 1]) out.config = argv[++i];
+    if (argv[i] === '--deep') out.deep = true;
   }
   return out;
 }
@@ -75,18 +77,30 @@ async function cmdStatus(): Promise<void> {
   }, null, 2));
 }
 
+async function cmdValidateConfig(args: Record<string, string | boolean>): Promise<void> {
+  const result = await validateConfig({
+    configPath: typeof args.config === 'string' ? args.config : undefined,
+    deep: Boolean(args.deep),
+  });
+  console.log(formatValidateOutput(result));
+  if (!result.ok) process.exit(1);
+}
+
 async function main(): Promise<void> {
   const [, , command, ...rest] = process.argv;
   const args = parseArgs(rest);
   switch (command) {
     case 'activate':
-      await cmdActivate(args);
+      await cmdActivate(args as Record<string, string>);
       break;
     case 'run':
-      await cmdRun(args);
+      await cmdRun(args as Record<string, string>);
       break;
     case 'status':
       await cmdStatus();
+      break;
+    case 'validate-config':
+      await cmdValidateConfig(args);
       break;
     default:
       console.log(`Afaq Attendance Bridge
@@ -94,7 +108,8 @@ async function main(): Promise<void> {
 Usage:
   AfaqAttendanceBridge.exe activate [--code <code>] [--api https://host/v1]
   AfaqAttendanceBridge.exe run
-  AfaqAttendanceBridge.exe status`);
+  AfaqAttendanceBridge.exe status
+  AfaqAttendanceBridge.exe validate-config [--deep] [--config path]`);
       process.exit(command ? 1 : 0);
   }
 }

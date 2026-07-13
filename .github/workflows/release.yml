@@ -27,18 +27,25 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Afaq Attendance Bridge ${{ github.ref_name }} — Windows package fix
+          name: Afaq Attendance Bridge ${{ github.ref_name }} — Service startup diagnostics fix
           body: |
             ## Fixes
-            - Flat ZIP layout (files at extract root, no extra nested folder)
-            - Batch scripts use APP_DIR for reliable paths
-            - Package integrity CI gate for WinSW, exe, and node fallback
-            - Download **AfaqAttendanceBridge-win-x64.zip** only — do NOT use Source code (zip)
+            - Fixes install-service.bat false SUCCESS when service fails to start
+            - Adds config.json preflight checks before installing service
+            - Adds validate-config CLI command
+            - Ensures WinSW starts AfaqAttendanceBridge.exe run with correct working directory
+            - Captures service logs under logs/
+            - Improves run-once/status diagnostics
+            - Adds package integrity checks for runtime/service XML
 
-            ## Required files after extract (same folder as .bat files)
-            - AfaqAttendanceBridge.exe
-            - node\node.exe
-            - service\winsw\WinSW-x64.exe
+            ## Install order
+            1. Extract to C:\AfaqAttendanceBridge (flat root)
+            2. Copy config.example.json to config.json and edit
+            3. Run run-once.bat first
+            4. Run install-service.bat as Administrator
+            5. Confirm service is RUNNING
+
+            Download **AfaqAttendanceBridge-win-x64.zip** only — do NOT use Source code (zip)
           files: |
             dist-packages/AfaqAttendanceBridge-win-x64.zip
             dist-packages/SHA256SUMS.txt

@@ -59,4 +59,57 @@ describe('attendance-bridge', () => {
     assert.equal(db2.queueDepth(), 1);
     fs.rmSync(dir, { recursive: true, force: true });
   });
+
+  it('validate-config rejects missing config.json', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-validate-'));
+    const { validateConfig, formatValidateOutput } = require('../dist/validate-config');
+    const result = await validateConfig({ cwd: dir });
+    assert.equal(result.ok, false);
+    assert.match(formatValidateOutput(result), /config\.json not found/i);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('validate-config accepts simulated device config', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-validate-'));
+    const config = {
+      centralApiBaseUrl: 'https://demo.example.com/v1',
+      tenantSlug: 'tfn',
+      timezone: 'UTC',
+      syncIntervalSeconds: 60,
+      devices: [
+        {
+          centralDeviceId: 1,
+          syncMode: 'simulated',
+          branchCode: 'MAIN',
+        },
+      ],
+    };
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(config));
+    const { validateConfig, formatValidateOutput } = require('../dist/validate-config');
+    const result = await validateConfig({ cwd: dir });
+    assert.equal(result.ok, true, formatValidateOutput(result));
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('validate-config rejects invalid branch and isapi fields', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'bridge-validate-'));
+    const config = {
+      centralApiBaseUrl: 'not-a-url',
+      tenantSlug: '',
+      syncIntervalSeconds: 0,
+      devices: [],
+    };
+    fs.writeFileSync(path.join(dir, 'config.json'), JSON.stringify(config));
+    const { validateConfig } = require('../dist/validate-config');
+    const result = await validateConfig({ cwd: dir });
+    assert.equal(result.ok, false);
+    assert.ok(result.errors.length >= 3);
+    fs.rmSync(dir, { recursive: true, force: true });
+  });
+
+  it('main CLI exposes validate-config command', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.ts'), 'utf8');
+    assert.match(src, /validate-config/);
+    assert.match(src, /cmdValidateConfig/);
+  });
 });

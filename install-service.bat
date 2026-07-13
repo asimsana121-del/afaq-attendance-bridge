@@ -17,6 +17,12 @@ if not exist "%APP_DIR%service\winsw\WinSW-x64.exe" (
   exit /b 1
 )
 
+if not exist "%APP_DIR%service\winsw\AfaqAttendanceBridge.xml" (
+  echo ERROR: AfaqAttendanceBridge.xml not found in service\winsw\
+  pause
+  exit /b 1
+)
+
 set "HAS_EXE=0"
 set "HAS_NODE=0"
 if exist "%APP_DIR%AfaqAttendanceBridge.exe" set "HAS_EXE=1"
@@ -28,8 +34,29 @@ if "%HAS_EXE%"=="0" if "%HAS_NODE%"=="0" (
   exit /b 1
 )
 
+if not exist "%APP_DIR%config.json" (
+  echo ERROR: config.json not found.
+  echo Copy config.example.json to config.json and edit it before installing the service.
+  pause
+  exit /b 1
+)
+
 if not exist "%APP_DIR%logs" mkdir "%APP_DIR%logs"
 if not exist "%APP_DIR%data" mkdir "%APP_DIR%data"
+
+echo Validating config.json...
+if "%HAS_EXE%"=="1" (
+  "%APP_DIR%AfaqAttendanceBridge.exe" validate-config
+) else (
+  "%APP_DIR%node\node.exe" "%APP_DIR%dist\main.js" validate-config
+)
+if errorlevel 1 (
+  echo.
+  echo ERROR: Config validation failed.
+  echo Fix config.json, then run run-once.bat before installing the service.
+  pause
+  exit /b 1
+)
 
 copy /Y "%APP_DIR%service\winsw\WinSW-x64.exe" "%APP_DIR%service\winsw\AfaqAttendanceBridgeSvc.exe" >nul
 copy /Y "%APP_DIR%service\winsw\AfaqAttendanceBridge.xml" "%APP_DIR%service\winsw\AfaqAttendanceBridgeSvc.xml" >nul
@@ -42,10 +69,60 @@ if errorlevel 1 (
   pause
   exit /b 1
 )
+
 AfaqAttendanceBridgeSvc.exe start AfaqAttendanceBridgeSvc.xml
+if errorlevel 1 (
+  echo ERROR: Service start command failed.
+  cd /d "%APP_DIR%"
+  call :ShowFailure
+  pause
+  exit /b 1
+)
+
 cd /d "%APP_DIR%"
+echo Waiting for service to start...
+timeout /t 5 /nobreak >nul
+
+sc query AfaqAttendanceBridge | findstr /C:"RUNNING" >nul
+if errorlevel 1 (
+  call :ShowFailure
+  pause
+  exit /b 1
+)
 
 echo.
-echo SUCCESS: Afaq Attendance Bridge service installed and started.
+echo SUCCESS: Afaq Attendance Bridge service installed and running.
 sc query AfaqAttendanceBridge
 pause
+exit /b 0
+
+:ShowFailure
+echo.
+echo ERROR: Service installed but failed to start.
+echo.
+sc query AfaqAttendanceBridge
+echo.
+echo Logs folder: %APP_DIR%logs\
+call :ShowLogs
+echo.
+echo Run run-once.bat first to see the direct console error.
+exit /b 1
+
+:ShowLogs
+if exist "%APP_DIR%logs\AfaqAttendanceBridgeSvc.err.log" (
+  echo --- Last 80 lines of AfaqAttendanceBridgeSvc.err.log ---
+  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridgeSvc.err.log' -Tail 80"
+  goto :eof
+)
+if exist "%APP_DIR%logs\AfaqAttendanceBridgeSvc.out.log" (
+  echo --- Last 80 lines of AfaqAttendanceBridgeSvc.out.log ---
+  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridgeSvc.out.log' -Tail 80"
+  goto :eof
+)
+if exist "%APP_DIR%logs\AfaqAttendanceBridge.err.log" (
+  echo --- Last 80 lines of AfaqAttendanceBridge.err.log ---
+  powershell -NoProfile -Command "Get-Content -LiteralPath '%APP_DIR%logs\AfaqAttendanceBridge.err.log' -Tail 80"
+  goto :eof
+)
+echo No service log files found yet.
+goto :eof

@@ -25,13 +25,24 @@ Those source archives contain no `AfaqAttendanceBridge.exe`, no `node\node.exe`,
 
 If any are missing, you downloaded the wrong file or extracted to the wrong folder.
 
+## Mandatory install order
+
+1. Extract the ZIP **directly** to `C:\AfaqAttendanceBridge` (flat root — `.bat` files beside the `.exe`).
+2. Confirm runtime files exist (table above).
+3. Copy `config.example.json` to `config.json` and edit it.
+4. Run **`run-once.bat`** — the bridge must work in the console first.
+5. Only then run **`install-service.bat`** as Administrator.
+6. Confirm the service status is **RUNNING** (`sc query AfaqAttendanceBridge` or `status.bat`).
+
+**Warning:** Do **not** run `install-service.bat` before `config.json` exists and `run-once.bat` succeeds.
+
 ## 1. Download
 
 Download **AfaqAttendanceBridge-win-x64.zip** from:
 
 https://github.com/asimsana121-del/afaq-attendance-bridge/releases
 
-Use the latest release (v0.1.1 or newer).
+Use the latest release (v0.1.2 or newer).
 
 ## 2. Extract
 
@@ -64,6 +75,12 @@ After extract, `run-once.bat` and `AfaqAttendanceBridge.exe` must be **directly*
 
 Double-click **`run-once.bat`**.
 
+Optional: validate config without starting sync:
+
+```
+AfaqAttendanceBridge.exe validate-config
+```
+
 You should see:
 
 ```
@@ -71,7 +88,7 @@ Bridge activated successfully
 [bridge] sync loop started
 ```
 
-If errors appear, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
+If errors appear, run `AfaqAttendanceBridge.exe validate-config` and check `logs\`.
 
 ## 5. Verify in Afaq Finance
 
@@ -81,9 +98,10 @@ If errors appear, see [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md).
 
 ## 6. Install Windows Service
 
-1. Right-click **`install-service.bat`** → **Run as administrator**.
-2. Open **Services** (`services.msc`).
-3. Find **Afaq Attendance Bridge** — status should be **Running**.
+1. Confirm `run-once.bat` worked.
+2. Right-click **`install-service.bat`** → **Run as administrator**.
+3. The script validates `config.json`, installs the service, and only prints **SUCCESS** if status is **RUNNING**.
+4. Open **Services** (`services.msc`) or run **`status.bat`** to confirm.
 
 ## 7. Map employees
 
@@ -107,8 +125,17 @@ Check **HRM → Device punches** and **Attendance sync** for incoming events.
 
 ## Logs
 
-- Service logs: `logs/` folder
+- Service logs: `logs\AfaqAttendanceBridgeSvc.out.log` and `logs\AfaqAttendanceBridgeSvc.err.log`
 - Local queue: `data/bridge-store.json`
+
+## Troubleshooting WIN32_EXIT_CODE 1064
+
+If the service is **STOPPED** with exit code **1064**, the bridge process crashed during startup:
+
+1. Run **`run-once.bat`** to see the error in the console window.
+2. Check **`logs\AfaqAttendanceBridgeSvc.err.log`** (last lines).
+3. Run **`AfaqAttendanceBridge.exe validate-config`** to check `config.json`.
+4. Fix config, run **`uninstall-service.bat`**, then **`install-service.bat`** again.
 
 ## Security
 

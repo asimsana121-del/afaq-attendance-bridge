@@ -72,6 +72,20 @@ function hasPath(files, required) {
   });
 }
 
+function runExe(exe, args, cwd) {
+  return execFileSync(exe, args, { encoding: 'utf8', timeout: 30000, cwd });
+}
+
+function runExeFail(exe, args, cwd) {
+  try {
+    execFileSync(exe, args, { encoding: 'utf8', timeout: 30000, cwd });
+    return { code: 0, out: '' };
+  } catch (err) {
+    const out = String(err.stdout ?? '') + String(err.stderr ?? '');
+    return { code: err.status ?? 1, out };
+  }
+}
+
 describe('package integrity', () => {
   it('ZIP exists and contains required flat-root paths', () => {
     assert.ok(fs.existsSync(ZIP_PATH), `Missing package: ${ZIP_PATH}`);
@@ -92,8 +106,6 @@ describe('package integrity', () => {
           `Forbidden file in package: ${forbidden}`,
         );
       }
-      const dataFiles = files.filter((f) => f.startsWith('data/') && !f.endsWith('/') && !f.endsWith('.gitkeep'));
-      const logFiles = files.filter((f) => f.startsWith('logs/') && !f.endsWith('/') && !f.endsWith('.gitkeep'));
       assert.ok(hasPath(files, 'data'), 'data/ directory missing in ZIP');
       assert.ok(hasPath(files, 'logs'), 'logs/ directory missing in ZIP');
     } finally {
@@ -101,16 +113,93 @@ describe('package integrity', () => {
     }
   });
 
-  it('primary executable prints usage', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
+  it('install-service.bat requires RUNNING before SUCCESS', () => {
+    const bat = fs.readFileSync(path.join(ROOT, 'install-service.bat'), 'utf8');
+    assert.match(bat, /RUNNING/i);
+    assert.match(bat, /installed and running/i);
+    assert.match(bat, /failed to start/i);
+    assert.doesNotMatch(bat, /echo\.\s*\r?\necho SUCCESS: Afaq Attendance Bridge service installed and started\./);
+  });
+
+  it('WinSW XML uses exe run with BASE and logs', () => {
+    const xml = fs.readFileSync(
+      path.join(ROOT, 'service', 'winsw', 'AfaqAttendanceBridge.xml'),
+      'utf8',
+    );
+    assert.match(xml, /AfaqAttendanceBridge\.exe/);
+    assert.match(xml, /<arguments>run<\/arguments>/);
+    assert.match(xml, /%BASE%/);
+    assert.match(xml, /logs/);
+    assert.match(xml, /10485760/);
+  });
+
+  it('primary executable prints usage with validate-config', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
     if (!fs.existsSync(ZIP_PATH)) return;
     const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aab-exe-'));
     try {
       extractZip(ZIP_PATH, tmp);
       const exe = path.join(tmp, 'AfaqAttendanceBridge.exe');
-      assert.ok(fs.existsSync(exe));
-      const out = execFileSync(exe, [], { encoding: 'utf8', timeout: 30000 });
+      const out = runExe(exe, [], tmp);
       assert.match(out, /Afaq Attendance Bridge/i);
-      assert.match(out, /Usage:/i);
+      assert.match(out, /validate-config/i);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('validate-config fails cleanly without config.json', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
+    if (!fs.existsSync(ZIP_PATH)) return;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aab-val-miss-'));
+    try {
+      extractZip(ZIP_PATH, tmp);
+      const exe = path.join(tmp, 'AfaqAttendanceBridge.exe');
+      const { code, out } = runExeFail(exe, ['validate-config'], tmp);
+      assert.notEqual(code, 0);
+      assert.match(out, /config\.json not found/i);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('validate-config passes with simulated test config', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
+    if (!fs.existsSync(ZIP_PATH)) return;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aab-val-ok-'));
+    try {
+      extractZip(ZIP_PATH, tmp);
+      const config = {
+        centralApiBaseUrl: 'https://demo.example.com/v1',
+        tenantSlug: 'tfn',
+        timezone: 'UTC',
+        syncIntervalSeconds: 60,
+        devices: [{ centralDeviceId: 1, syncMode: 'simulated', branchCode: 'MAIN' }],
+      };
+      fs.writeFileSync(path.join(tmp, 'config.json'), JSON.stringify(config));
+      fs.mkdirSync(path.join(tmp, 'data'), { recursive: true });
+      const exe = path.join(tmp, 'AfaqAttendanceBridge.exe');
+      const out = runExe(exe, ['validate-config'], tmp);
+      assert.match(out, /CONFIG OK/);
+    } finally {
+      fs.rmSync(tmp, { recursive: true, force: true });
+    }
+  });
+
+  it('status command does not crash with test config', { skip: process.platform !== 'win32' ? 'Windows only' : false }, () => {
+    if (!fs.existsSync(ZIP_PATH)) return;
+    const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'aab-status-'));
+    try {
+      extractZip(ZIP_PATH, tmp);
+      const config = {
+        centralApiBaseUrl: 'https://demo.example.com/v1',
+        tenantSlug: 'tfn',
+        timezone: 'UTC',
+        syncIntervalSeconds: 60,
+        devices: [{ centralDeviceId: 1, syncMode: 'simulated', branchCode: 'MAIN' }],
+      };
+      fs.writeFileSync(path.join(tmp, 'config.json'), JSON.stringify(config));
+      fs.mkdirSync(path.join(tmp, 'data'), { recursive: true });
+      const exe = path.join(tmp, 'AfaqAttendanceBridge.exe');
+      const out = runExe(exe, ['status'], tmp);
+      assert.match(out, /activated|queueDepth|tenantId/i);
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }
@@ -123,14 +212,8 @@ describe('package integrity', () => {
       extractZip(ZIP_PATH, tmp);
       const nodeExe = path.join(tmp, 'node', 'node.exe');
       const mainJs = path.join(tmp, 'dist', 'main.js');
-      assert.ok(fs.existsSync(nodeExe));
-      assert.ok(fs.existsSync(mainJs));
       try {
-        const out = execFileSync(nodeExe, [mainJs, 'status'], {
-          encoding: 'utf8',
-          timeout: 30000,
-          cwd: tmp,
-        });
+        const out = runExe(nodeExe, [mainJs, 'status'], tmp);
         assert.match(out, /activated|queueDepth|tenantId/i);
       } catch (err) {
         const combined = String(err.stdout ?? '') + String(err.stderr ?? '');
