@@ -93,10 +93,10 @@ describe('package integrity', () => {
           `Forbidden file in package: ${forbidden}`,
         );
       }
-      const dataFiles = files.filter((f) => f.startsWith('data/') && !f.endsWith('/'));
-      const logFiles = files.filter((f) => f.startsWith('logs/') && !f.endsWith('/'));
-      assert.equal(dataFiles.length, 0, 'data/ must be empty in release ZIP');
-      assert.equal(logFiles.length, 0, 'logs/ must be empty in release ZIP');
+      const dataFiles = files.filter((f) => f.startsWith('data/') && !f.endsWith('/') && !f.endsWith('.gitkeep'));
+      const logFiles = files.filter((f) => f.startsWith('logs/') && !f.endsWith('/') && !f.endsWith('.gitkeep'));
+      assert.ok(hasPath(files, 'data'), 'data/ directory missing in ZIP');
+      assert.ok(hasPath(files, 'logs'), 'logs/ directory missing in ZIP');
     } finally {
       fs.rmSync(tmp, { recursive: true, force: true });
     }

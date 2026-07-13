@@ -29,6 +29,9 @@ if (Test-Path (Join-Path $Root 'dist-packages\stage')) {
 New-Item -ItemType Directory -Force -Path $StageDir | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'logs') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'data') | Out-Null
+# Compress-Archive omits empty directories — placeholder files ensure data/ and logs/ ship in ZIP.
+New-Item -ItemType File -Force -Path (Join-Path $StageDir 'data\.gitkeep') | Out-Null
+New-Item -ItemType File -Force -Path (Join-Path $StageDir 'logs\.gitkeep') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'node') | Out-Null
 New-Item -ItemType Directory -Force -Path (Join-Path $StageDir 'service\winsw') | Out-Null
 
@@ -103,8 +106,8 @@ $required = @(
   'install-service.bat',
   'uninstall-service.bat',
   'status.bat',
-  'data/',
-  'logs/'
+  'data/.gitkeep',
+  'logs/.gitkeep',
 )
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
