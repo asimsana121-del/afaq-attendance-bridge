@@ -13,17 +13,21 @@
       "name": "Main Office Hikvision",
       "vendor": "hikvision",
       "model": "DS-K1A802AEF-B",
-      "localIp": "192.168.1.201",
+      "localIp": "10.5.10.67",
       "port": 80,
       "username": "admin",
       "password": "CHANGE_ME",
+      "authMode": "auto",
       "syncMode": "isapi",
+      "eventsMethod": "POST",
       "branchCode": "MAIN"
     }
   ],
   "isapi": {
-    "eventsPath": "/ISAPI/AccessControl/AcsEvent?format=json",
     "deviceInfoPath": "/ISAPI/System/deviceInfo",
+    "capabilitiesPath": "/ISAPI/AccessControl/capabilities",
+    "acsEventCapabilitiesPath": "/ISAPI/AccessControl/AcsEvent/capabilities?format=json",
+    "eventsPath": "/ISAPI/AccessControl/AcsEvent?format=json",
     "usersPath": "/ISAPI/AccessControl/UserInfo/Search?format=json"
   }
 }

@@ -155,4 +155,77 @@ describe('attendance-bridge', () => {
     const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'central-api-client.ts'), 'utf8');
     assert.match(src, /credentials:\s*'omit'/);
   });
+
+  it('selectQop prefers auth from auth,auth-int', () => {
+    const { selectQop, parseWwwAuthenticateDigest, detectChallengeType, digestUriVariants, buildDigestAuthorization } =
+      require('../dist/drivers/digest-auth');
+    assert.equal(selectQop('auth,auth-int'), 'auth');
+    assert.equal(selectQop('"auth,auth-int"'), 'auth');
+    assert.equal(detectChallengeType('Digest realm="IP Camera"'), 'Digest');
+    assert.equal(detectChallengeType('Basic realm="x"'), 'Basic');
+    const params = parseWwwAuthenticateDigest(
+      'Digest realm="IPCamera", nonce="abc123", qop="auth,auth-int", opaque="deadbeef"',
+    );
+    assert.equal(params.realm, 'IPCamera');
+    assert.equal(params.nonce, 'abc123');
+    assert.equal(params.opaque, 'deadbeef');
+    assert.equal(selectQop(params.qop), 'auth');
+    const variants = digestUriVariants('/ISAPI/AccessControl/AcsEvent?format=json');
+    assert.equal(variants[0].variant, 'full');
+    assert.equal(variants[1].variant, 'path-only');
+    assert.equal(variants[1].uri, '/ISAPI/AccessControl/AcsEvent');
+    const header = buildDigestAuthorization({
+      wwwAuthenticate: 'Digest realm="R", nonce="N", qop="auth,auth-int", opaque="O"',
+      method: 'POST',
+      uri: '/ISAPI/AccessControl/AcsEvent?format=json',
+      username: 'admin',
+      password: 'secret',
+    });
+    assert.match(header, /^Digest /);
+    assert.match(header, /qop=auth/);
+    assert.match(header, /opaque="O"/);
+    assert.doesNotMatch(header, /secret/);
+  });
+
+  it('main CLI exposes test-device command', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'main.ts'), 'utf8');
+    assert.match(src, /test-device/);
+    assert.match(src, /cmdTestDevice/);
+  });
+
+  it('test-device diagnosis codes are defined', () => {
+    const testSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'test-device.ts'), 'utf8');
+    const driverSrc = fs.readFileSync(path.join(__dirname, '..', 'src', 'drivers', 'hikvision-isapi.driver.ts'), 'utf8');
+    assert.match(testSrc, /DEVICE_AUTH_OK/);
+    assert.match(testSrc, /DEVICE_AUTH_FAILED/);
+    assert.match(driverSrc, /DEVICE_ENDPOINT_UNSUPPORTED/);
+    assert.match(driverSrc, /DEVICE_REACHABLE_BUT_EVENTS_FAILED/);
+  });
+
+  it('hikvision pullEvents does not throw on HTTP errors (service safe)', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'drivers', 'hikvision-isapi.driver.ts'), 'utf8');
+    assert.match(src, /return \[\]/);
+    assert.match(src, /eventsMethod/);
+    assert.match(src, /probeCapabilities/);
+  });
+
+  it('sync-runner maps device auth errors to heartbeat status without exiting loop', () => {
+    const src = fs.readFileSync(path.join(__dirname, '..', 'src', 'sync', 'sync-runner.ts'), 'utf8');
+    assert.match(src, /deviceStatus\.set\(deviceId, 'error'\)/);
+    assert.match(src, /for \(;;\)/);
+    assert.match(src, /getLastDeviceError/);
+  });
+
+  it('package version is 0.1.5', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'package.json'), 'utf8'));
+    assert.equal(pkg.version, '0.1.5');
+  });
+
+  it('config.example has authMode auto and eventsMethod POST', () => {
+    const cfg = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'config.example.json'), 'utf8'));
+    assert.equal(cfg.devices[0].authMode, 'auto');
+    assert.equal(cfg.devices[0].eventsMethod, 'POST');
+    assert.equal(cfg.devices[0].model, 'DS-K1A802AEF-B');
+    assert.ok(cfg.isapi.acsEventCapabilitiesPath);
+  });
 });

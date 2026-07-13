@@ -42,7 +42,7 @@ Download **AfaqAttendanceBridge-win-x64.zip** from:
 
 https://github.com/asimsana121-del/afaq-attendance-bridge/releases
 
-Use the latest release (v0.1.3 or newer).
+Use the latest release (v0.1.5 or newer).
 
 ## 2. Extract
 
@@ -64,8 +64,10 @@ After extract, `run-once.bat` and `AfaqAttendanceBridge.exe` must be **directly*
 | `centralApiBaseUrl` | **Direct API base URL** — see [Central API URL](#central-api-url) below |
 | `tenantSlug` | Your tenant code (from Afaq admin) |
 | `activationCode` | One-time code from **Superadmin → Attendance Devices** or **HRM → Attendance devices** |
-| `devices[].localIp` | Hikvision device IP on your office LAN |
-| `devices[].username` / `password` | Device admin credentials |
+| `devices[].localIp` | Hikvision device IP on your office LAN (same segment as this PC) |
+| `devices[].username` / `password` | Device admin credentials (default user is often `admin`) |
+| `devices[].authMode` | `auto` (recommended), or `digest` / `basic` |
+| `devices[].eventsMethod` | `POST` (default for AcsEvent) |
 | `devices[].centralDeviceId` | Device ID from Afaq Finance after registering the device |
 | `devices[].branchCode` | Branch code (e.g. `MAIN`) |
 
@@ -91,11 +93,14 @@ If you see **CSRF token missing or invalid**, the URL points at a browser-protec
 
 Double-click **`run-once.bat`**.
 
-Optional: validate config without starting sync:
+Optional: validate config and device without starting sync:
 
 ```
 AfaqAttendanceBridge.exe validate-config --deep
+AfaqAttendanceBridge.exe test-device
 ```
+
+`test-device` confirms LAN reachability and ISAPI auth. A diagnosis of `DEVICE_AUTH_FAILED` or events **HTTP 401** means the **Hikvision password/ISAPI access** is wrong — not the Afaq API.
 
 You should see:
 
@@ -138,6 +143,19 @@ Check **HRM → Device punches** and **Attendance sync** for incoming events.
 | `status.bat` | Service status + recent log lines |
 | `install-service.bat` | Install & start Windows Service (admin) |
 | `uninstall-service.bat` | Remove service (keeps config & data) |
+| `AfaqAttendanceBridge.exe test-device` | Probe Hikvision TCP + ISAPI auth + AcsEvent |
+
+## Device HTTP 401
+
+If logs show `[isapi] … HTTP 401`:
+
+1. Check device username/password.
+2. Confirm device is activated and web/ISAPI is enabled.
+3. Try `"authMode": "digest"`.
+4. Confirm PC and device are on the same LAN.
+5. Do not expose the device to the internet.
+
+This is **not** an Afaq central API failure. The Windows service keeps running and retries.
 
 ## Logs
 

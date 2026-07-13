@@ -8,8 +8,9 @@ import {
   validateCentralApiUrl,
 } from './api-url-validation';
 import { createClientFromConfig } from './central-api-client';
-import { getDataDir, type DeviceConfig } from './config';
+import { getDataDir, type DeviceConfig, type BridgeConfig } from './config';
 import { BridgeDb } from './db/bridge-store';
+import { HikvisionIsapiDriver } from './drivers/hikvision-isapi.driver';
 
 const PLACEHOLDER_CODES = new Set([
   'PASTE_ACTIVATION_CODE_HERE',
@@ -43,6 +44,14 @@ function normalizeDevices(devices: unknown): DeviceConfig[] {
   return devices.map((d) => {
     const row = d as Record<string, unknown>;
     const mode = (row.syncMode ?? row.driver ?? 'isapi') as DeviceConfig['syncMode'];
+    const authModeRaw = String(row.authMode ?? 'auto').toLowerCase();
+    const authMode: DeviceConfig['authMode'] =
+      authModeRaw === 'digest' || authModeRaw === 'basic' || authModeRaw === 'auto'
+        ? authModeRaw
+        : 'auto';
+    const eventsMethodRaw = String(row.eventsMethod ?? 'POST').toUpperCase();
+    const eventsMethod: DeviceConfig['eventsMethod'] =
+      eventsMethodRaw === 'GET' ? 'GET' : 'POST';
     return {
       centralDeviceId: Number(row.centralDeviceId ?? 0),
       name: row.name as string | undefined,
@@ -52,6 +61,8 @@ function normalizeDevices(devices: unknown): DeviceConfig[] {
       port: row.port != null ? Number(row.port) : 80,
       username: row.username as string | undefined,
       password: row.password as string | undefined,
+      authMode,
+      eventsMethod,
       syncMode: mode,
       driver: mode,
       branchCode: row.branchCode as string | undefined,
@@ -93,6 +104,13 @@ function validateDevice(device: DeviceConfig, index: number, errors: string[]): 
     }
     if (!device.password || !String(device.password).trim()) {
       errors.push(`ERROR: ${label}.password is required for isapi sync`);
+    }
+    if (device.password === 'CHANGE_ME') {
+      errors.push(`ERROR: ${label}.password is still CHANGE_ME — set the device password`);
+    }
+    const auth = device.authMode ?? 'auto';
+    if (!['auto', 'digest', 'basic'].includes(auth)) {
+      errors.push(`ERROR: ${label}.authMode must be auto, digest, or basic`);
     }
   }
   if (mode === 'csv') {
@@ -218,18 +236,20 @@ export async function validateConfig(options: ValidateConfigOptions = {}): Promi
     }
 
     const apiBase = api.replace(/\/$/, '');
+    let centralReachable = false;
     if (apiBase && isValidUrl(apiBase)) {
-      let reachable = false;
       for (const path of ['/health', '']) {
         try {
           const res = await fetchWithTimeout(`${apiBase}${path}`, 5000);
-          if (res.status < 500) reachable = true;
+          if (res.status < 500) centralReachable = true;
         } catch {
           // try next
         }
       }
-      if (!reachable) {
+      if (!centralReachable) {
         errors.push('ERROR: central API is not reachable (deep check)');
+      } else {
+        warnings.push('INFO: central API reachable');
       }
 
       const csrfErr = await probeBridgeActivateEndpoint(apiBase);
@@ -237,11 +257,14 @@ export async function validateConfig(options: ValidateConfigOptions = {}): Promi
     }
 
     const prevCwd = process.cwd();
+    let bridgeActivated = false;
     try {
       process.chdir(cwd);
       const db = new BridgeDb(getDataDir());
       const token = db.getStatus('bridgeToken');
       if (token) {
+        bridgeActivated = true;
+        warnings.push('INFO: bridge activated (token present)');
         try {
           const client = createClientFromConfig(
             {
@@ -263,14 +286,69 @@ export async function validateConfig(options: ValidateConfigOptions = {}): Promi
     } finally {
       process.chdir(prevCwd);
     }
+    void bridgeActivated;
+
+    const isapiPaths = raw.isapi as BridgeConfig['isapi'];
 
     for (let i = 0; i < devices.length; i++) {
       const d = devices[i];
       if ((d.syncMode ?? 'isapi') !== 'isapi' || !d.localIp) continue;
       const port = d.port ?? 80;
-      const ok = await probeTcp(d.localIp, port, 3000);
-      if (!ok) {
-        errors.push(`ERROR: devices[${i}] ${d.localIp}:${port} is not reachable (deep check)`);
+      const tcpOk = await probeTcp(d.localIp, port, 3000);
+      if (!tcpOk) {
+        errors.push(`ERROR: devices[${i}] ${d.localIp}:${port} TCP not reachable (deep check)`);
+        continue;
+      }
+      warnings.push(`INFO: devices[${i}] ${d.localIp}:${port} TCP reachable`);
+
+      try {
+        const driver = new HikvisionIsapiDriver(d, isapiPaths);
+        const probe = await driver.probeCapabilities();
+        if (probe.challengeType) {
+          warnings.push(`INFO: devices[${i}] ISAPI auth challenge: ${probe.challengeType}`);
+        }
+        for (const step of probe.steps) {
+          if (step.name === 'deviceInfo') {
+            if (step.ok) {
+              warnings.push(`INFO: devices[${i}] deviceInfo HTTP ${step.status ?? 200}`);
+            } else {
+              errors.push(
+                `ERROR: devices[${i}] deviceInfo failed HTTP ${step.status ?? '?'}` +
+                  (step.status === 401
+                    ? ' — Check device username/password, enable ISAPI/web access, or set authMode=digest.'
+                    : ''),
+              );
+            }
+          }
+          if (step.name === 'acsEventSample') {
+            if (step.ok) {
+              warnings.push(`INFO: devices[${i}] events endpoint HTTP ${step.status ?? 200}`);
+            } else if (step.status === 401) {
+              errors.push(
+                `ERROR: devices[${i}] events HTTP 401 (device auth failed, not Afaq API). ` +
+                  'Check device username/password, enable ISAPI/web access, or set authMode=digest.',
+              );
+            } else if (step.warning) {
+              warnings.push(`WARNING: devices[${i}] ${step.warning}`);
+            } else {
+              warnings.push(
+                `WARNING: devices[${i}] events endpoint HTTP ${step.status ?? '?'} diagnosis=${probe.diagnosis}`,
+              );
+            }
+          }
+          if (step.warning && step.name !== 'acsEventSample') {
+            warnings.push(`WARNING: devices[${i}] ${step.name}: ${step.warning}`);
+          }
+        }
+        if (probe.diagnosis === 'DEVICE_AUTH_FAILED' && !errors.some((e) => e.includes(`devices[${i}]`))) {
+          errors.push(
+            `ERROR: devices[${i}] DEVICE_AUTH_FAILED — Check device username/password, enable ISAPI/web access, or set authMode=digest.`,
+          );
+        }
+      } catch (err) {
+        warnings.push(
+          `WARNING: devices[${i}] ISAPI probe skipped: ${String((err as Error).message ?? err)}`,
+        );
       }
     }
   }

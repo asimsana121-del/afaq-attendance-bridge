@@ -1,13 +1,18 @@
 import { buildSourceHash } from '../crypto/source-hash';
 import type { BridgeDb } from '../db/bridge-store';
-import type { BridgeConfig } from '../config';
+import type { BridgeConfig, DeviceConfig } from '../config';
 import { createDriver } from '../drivers';
+import { HikvisionIsapiDriver } from '../drivers/hikvision-isapi.driver';
 import { CentralApiClient } from '../central-api-client';
 import { nextBackoff, sleep } from './backoff';
+
+type DeviceRuntimeStatus = 'online' | 'error' | 'offline';
 
 export class SyncRunner {
   private backoff = { attempt: 0, nextDelayMs: 2000 };
   private lastHeartbeat = 0;
+  /** Per-device last known status for heartbeat / dashboard. */
+  private deviceStatus = new Map<number, DeviceRuntimeStatus>();
 
   constructor(
     private readonly config: BridgeConfig,
@@ -24,7 +29,7 @@ export class SyncRunner {
           .filter((d) => d.centralDeviceId)
           .map((d) => ({
             deviceId: d.centralDeviceId!,
-            status: 'online',
+            status: this.deviceStatus.get(d.centralDeviceId!) ?? 'online',
           }));
         await this.client.heartbeat(deviceStatuses.length ? deviceStatuses : undefined);
         this.lastHeartbeat = now;
@@ -34,6 +39,7 @@ export class SyncRunner {
     }
 
     for (const deviceCfg of this.config.devices) {
+      // Device errors must never throw out of pullDevice — service keeps running.
       await this.pullDevice(deviceCfg);
     }
 
@@ -47,6 +53,7 @@ export class SyncRunner {
         await this.runOnce();
         this.backoff = nextBackoff(this.backoff, true);
       } catch (err) {
+        // Central API / queue flush failures — still keep process alive
         this.db.logError('sync-loop', (err as Error).message);
         this.backoff = nextBackoff(this.backoff, false);
         console.warn(`[bridge] error, backing off ${this.backoff.nextDelayMs}ms`);
@@ -57,18 +64,30 @@ export class SyncRunner {
     }
   }
 
-  private async pullDevice(deviceCfg: BridgeConfig['devices'][number]): Promise<void> {
+  private async pullDevice(deviceCfg: DeviceConfig): Promise<void> {
     if (!deviceCfg.centralDeviceId) {
       this.db.logError('pull', `Device "${deviceCfg.name ?? 'unknown'}" missing centralDeviceId`);
       return;
     }
+    const deviceId = deviceCfg.centralDeviceId;
     const driver = createDriver(deviceCfg, this.config);
-    const cursor = this.db.getCursor(deviceCfg.centralDeviceId);
+    const cursor = this.db.getCursor(deviceId);
     let events;
     try {
       events = await driver.pullEvents(cursor);
+      if (driver instanceof HikvisionIsapiDriver) {
+        const err = driver.getLastDeviceError();
+        if (err) {
+          // HTTP 401 / device auth failures land here — log, mark error, do NOT throw
+          this.db.logError(`pull:${deviceId}`, err);
+          this.deviceStatus.set(deviceId, 'error');
+          return;
+        }
+      }
+      this.deviceStatus.set(deviceId, 'online');
     } catch (err) {
-      this.db.logError(`pull:${deviceCfg.centralDeviceId}`, (err as Error).message);
+      this.db.logError(`pull:${deviceId}`, (err as Error).message);
+      this.deviceStatus.set(deviceId, 'error');
       return;
     }
 

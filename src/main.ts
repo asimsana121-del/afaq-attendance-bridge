@@ -4,6 +4,8 @@ import { BridgeDb } from './db/bridge-store';
 import { createClientFromConfig } from './central-api-client';
 import { SyncRunner } from './sync/sync-runner';
 import { formatValidateOutput, validateConfig } from './validate-config';
+import { formatTestDeviceOutput, testDeviceExitCode, testDevices } from './test-device';
+import { getBridgeVersion } from './version';
 
 function parseArgs(argv: string[]): Record<string, string | boolean> {
   const out: Record<string, string | boolean> = {};
@@ -11,6 +13,7 @@ function parseArgs(argv: string[]): Record<string, string | boolean> {
     if (argv[i] === '--code' && argv[i + 1]) out.code = argv[++i];
     if (argv[i] === '--api' && argv[i + 1]) out.api = argv[++i];
     if (argv[i] === '--config' && argv[i + 1]) out.config = argv[++i];
+    if (argv[i] === '--device' && argv[i + 1]) out.device = argv[++i];
     if (argv[i] === '--deep') out.deep = true;
   }
   return out;
@@ -67,6 +70,7 @@ async function cmdRun(args: Record<string, string>): Promise<void> {
 async function cmdStatus(): Promise<void> {
   const db = new BridgeDb(getDataDir());
   console.log(JSON.stringify({
+    version: getBridgeVersion(),
     tenantId: db.getStatus('tenantId'),
     bridgeId: db.getStatus('bridgeId'),
     machineId: db.getStatus('machineId'),
@@ -86,6 +90,19 @@ async function cmdValidateConfig(args: Record<string, string | boolean>): Promis
   if (!result.ok) process.exit(1);
 }
 
+async function cmdTestDevice(args: Record<string, string | boolean>): Promise<void> {
+  const deviceId =
+    typeof args.device === 'string' && args.device.trim()
+      ? Number(args.device)
+      : undefined;
+  const reports = await testDevices({
+    configPath: typeof args.config === 'string' ? args.config : undefined,
+    deviceId: Number.isFinite(deviceId) ? deviceId : undefined,
+  });
+  console.log(formatTestDeviceOutput(reports));
+  process.exit(testDeviceExitCode(reports));
+}
+
 async function main(): Promise<void> {
   const [, , command, ...rest] = process.argv;
   const args = parseArgs(rest);
@@ -102,14 +119,18 @@ async function main(): Promise<void> {
     case 'validate-config':
       await cmdValidateConfig(args);
       break;
+    case 'test-device':
+      await cmdTestDevice(args);
+      break;
     default:
-      console.log(`Afaq Attendance Bridge
+      console.log(`Afaq Attendance Bridge v${getBridgeVersion()}
 
 Usage:
   AfaqAttendanceBridge.exe activate [--code <code>] [--api https://host/v1]
   AfaqAttendanceBridge.exe run
   AfaqAttendanceBridge.exe status
-  AfaqAttendanceBridge.exe validate-config [--deep] [--config path]`);
+  AfaqAttendanceBridge.exe validate-config [--deep] [--config path]
+  AfaqAttendanceBridge.exe test-device [--device <centralDeviceId>] [--config path]`);
       process.exit(command ? 1 : 0);
   }
 }

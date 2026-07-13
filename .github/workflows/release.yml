@@ -27,20 +27,27 @@ jobs:
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          name: Afaq Attendance Bridge ${{ github.ref_name }} — api.tofan.dev URL fix
+          name: Afaq Attendance Bridge ${{ github.ref_name }} — Hikvision ISAPI auth fix
           body: |
             ## Fixes
-            - `centralApiBaseUrl` example: `https://api.tofan.dev/v1` (tofan.dev production)
-            - Warns against tenant hosts (`tfn.tofan.dev/v1`) and `/api/bff`
-            - CSRF-aware errors and `validate-config --deep` (from v0.1.3)
+            - Hikvision Digest Auth `authMode: auto` (also `digest` / `basic`)
+            - POST AcsEvent polling (`eventsMethod: POST`) with capability probing
+            - `test-device` command with DEVICE_* diagnosis codes
+            - Device HTTP 401 no longer treated as a service crash; sync loop retries
+            - Stronger `validate-config --deep` (TCP + ISAPI auth + events)
+            - DS-K1A802AEF-B config defaults
 
-            ## Requires
-            - Monorepo: `api.tofan.dev` OpenResty + Portainer `API_PUBLISH_PORT=3002`
-            - API CSRF bridge exemption deployed (`BUILD_COMMIT` ≥ `56aab24`)
-
-            ## config.json
+            ## config.json (device)
             ```json
+            "authMode": "auto",
+            "eventsMethod": "POST",
             "centralApiBaseUrl": "https://api.tofan.dev/v1"
+            ```
+
+            ## Diagnose
+            ```
+            AfaqAttendanceBridge.exe test-device
+            AfaqAttendanceBridge.exe validate-config --deep
             ```
 
             Download **AfaqAttendanceBridge-win-x64.zip** only — do NOT use Source code (zip)

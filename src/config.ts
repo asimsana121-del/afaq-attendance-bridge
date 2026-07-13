@@ -2,6 +2,9 @@ import { copyFileSync, existsSync, readFileSync } from 'fs';
 import { hostname } from 'os';
 import { join } from 'path';
 
+export type AuthMode = 'auto' | 'digest' | 'basic';
+export type EventsMethod = 'POST' | 'GET';
+
 export type DeviceConfig = {
   centralDeviceId: number;
   name?: string;
@@ -11,6 +14,10 @@ export type DeviceConfig = {
   port?: number;
   username?: string;
   password?: string;
+  /** ISAPI auth: auto (default) | digest | basic */
+  authMode?: AuthMode;
+  /** AcsEvent HTTP method — default POST */
+  eventsMethod?: EventsMethod;
   syncMode?: 'isapi' | 'simulated' | 'csv';
   driver?: 'isapi' | 'simulated' | 'csv';
   branchCode?: string;
@@ -30,8 +37,10 @@ export type BridgeConfig = {
   maxBatchSize: number;
   devices: DeviceConfig[];
   isapi?: {
-    eventsPath?: string;
     deviceInfoPath?: string;
+    capabilitiesPath?: string;
+    acsEventCapabilitiesPath?: string;
+    eventsPath?: string;
     usersPath?: string;
   };
 };
@@ -89,6 +98,14 @@ function normalizeDevices(devices: unknown): DeviceConfig[] {
   return devices.map((d) => {
     const row = d as Record<string, unknown>;
     const mode = (row.syncMode ?? row.driver ?? 'isapi') as DeviceConfig['syncMode'];
+    const authModeRaw = String(row.authMode ?? 'auto').toLowerCase();
+    const authMode: DeviceConfig['authMode'] =
+      authModeRaw === 'digest' || authModeRaw === 'basic' || authModeRaw === 'auto'
+        ? authModeRaw
+        : 'auto';
+    const eventsMethodRaw = String(row.eventsMethod ?? 'POST').toUpperCase();
+    const eventsMethod: DeviceConfig['eventsMethod'] =
+      eventsMethodRaw === 'GET' ? 'GET' : 'POST';
     return {
       centralDeviceId: Number(row.centralDeviceId ?? 0),
       name: row.name as string | undefined,
@@ -98,6 +115,8 @@ function normalizeDevices(devices: unknown): DeviceConfig[] {
       port: row.port != null ? Number(row.port) : 80,
       username: row.username as string | undefined,
       password: row.password as string | undefined,
+      authMode,
+      eventsMethod,
       syncMode: mode,
       driver: mode,
       branchCode: row.branchCode as string | undefined,
