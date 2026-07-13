@@ -22,7 +22,7 @@ export function validateCentralApiUrl(apiBaseUrl: string): { errors: string[]; w
   const lower = raw.toLowerCase();
   if (lower.includes('/api/bff')) {
     errors.push(
-      'ERROR: centralApiBaseUrl appears to point to the web app/BFF. Use the API base URL (e.g. https://api.your-domain.com/v1).',
+      'ERROR: centralApiBaseUrl appears to point to the web app/BFF. Use the API base URL (e.g. https://api.tofan.dev/v1).',
     );
   }
   if (lower.includes('/app/')) {
@@ -37,10 +37,19 @@ export function validateCentralApiUrl(apiBaseUrl: string): { errors: string[]; w
   try {
     const u = new URL(raw.replace(/\/$/, ''));
     const host = u.hostname.toLowerCase();
-    if (!host.startsWith('api.') && !host.includes('localhost') && !host.includes('127.0.0.1')) {
-      warnings.push(
-        `WARNING: centralApiBaseUrl host "${host}" does not look like a dedicated API host. Prefer https://api.<domain>/v1 unless your deployment exposes /v1 on the tenant subdomain.`,
-      );
+    const isDedicatedApiHost =
+      host.startsWith('api.') || host.includes('localhost') || host.includes('127.0.0.1');
+    const isTenantSlugHost = host.endsWith('.tofan.dev') && !host.startsWith('api.');
+    if (!isDedicatedApiHost) {
+      if (isTenantSlugHost) {
+        warnings.push(
+          `WARNING: centralApiBaseUrl host "${host}" is a tenant web host. Use https://api.tofan.dev/v1 for Attendance Bridge (direct NestJS), not ${host}/v1.`,
+        );
+      } else {
+        warnings.push(
+          `WARNING: centralApiBaseUrl host "${host}" does not look like a dedicated API host. Prefer https://api.<domain>/v1.`,
+        );
+      }
     }
   } catch {
     // URL format errors handled elsewhere

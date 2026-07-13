@@ -125,6 +125,19 @@ describe('attendance-bridge', () => {
     assert.ok(result.errors.some((e) => /\/v1/i.test(e)));
   });
 
+  it('validateCentralApiUrl warns on tenant slug host for tofan.dev', () => {
+    const { validateCentralApiUrl } = require('../dist/api-url-validation');
+    const result = validateCentralApiUrl('https://tfn.tofan.dev/v1');
+    assert.ok(result.warnings.some((w) => /api\.tofan\.dev/i.test(w)));
+  });
+
+  it('validateCentralApiUrl accepts api.tofan.dev without warning', () => {
+    const { validateCentralApiUrl } = require('../dist/api-url-validation');
+    const result = validateCentralApiUrl('https://api.tofan.dev/v1');
+    assert.equal(result.errors.length, 0);
+    assert.equal(result.warnings.length, 0);
+  });
+
   it('formatBridgeApiError detects CSRF misconfiguration', () => {
     const { formatBridgeApiError } = require('../dist/central-api-client');
     const msg = formatBridgeApiError(

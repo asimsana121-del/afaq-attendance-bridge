@@ -1,5 +1,5 @@
 {
-  "centralApiBaseUrl": "https://api.your-domain.com/v1",
+  "centralApiBaseUrl": "https://api.tofan.dev/v1",
   "tenantSlug": "tfn",
   "activationCode": "PASTE_ACTIVATION_CODE_HERE",
   "bridgeName": "Main Office Bridge",

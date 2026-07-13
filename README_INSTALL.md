@@ -77,12 +77,13 @@ Set `centralApiBaseUrl` to the **direct NestJS API** (machine-to-machine). Do **
 
 | Use | Example |
 |-----|---------|
-| Correct | `https://api.finance.tofan-tracker.com/v1` |
-| Also OK (if your deployment exposes `/v1` on the tenant host) | `https://tfn.tofan.dev/v1` |
+| Correct (tofan.dev production) | `https://api.tofan.dev/v1` |
+| Correct (tofan-tracker.com deployment) | `https://api.finance.tofan-tracker.com/v1` |
+| Wrong | `https://tfn.tofan.dev/v1` (tenant web → BFF, not direct API) |
 | Wrong | `https://tenant.example.com` (missing `/v1`) |
 | Wrong | `https://tenant.example.com/api/bff` |
 
-Optional environment override: `BRIDGE_CENTRAL_API_BASE_URL=https://api.your-domain.com/v1`
+Optional environment override: `BRIDGE_CENTRAL_API_BASE_URL=https://api.tofan.dev/v1`
 
 If you see **CSRF token missing or invalid**, the URL points at a browser-protected endpoint — switch to the API base URL above.
 
