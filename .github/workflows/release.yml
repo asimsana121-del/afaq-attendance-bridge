@@ -22,10 +22,23 @@ jobs:
 
       - run: npm ci
       - run: npm run package:windows
+      - run: node --test test/package-integrity.test.js
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
+          name: Afaq Attendance Bridge ${{ github.ref_name }} — Windows package fix
+          body: |
+            ## Fixes
+            - Flat ZIP layout (files at extract root, no extra nested folder)
+            - Batch scripts use APP_DIR for reliable paths
+            - Package integrity CI gate for WinSW, exe, and node fallback
+            - Download **AfaqAttendanceBridge-win-x64.zip** only — do NOT use Source code (zip)
+
+            ## Required files after extract (same folder as .bat files)
+            - AfaqAttendanceBridge.exe
+            - node\node.exe
+            - service\winsw\WinSW-x64.exe
           files: |
             dist-packages/AfaqAttendanceBridge-win-x64.zip
             dist-packages/SHA256SUMS.txt

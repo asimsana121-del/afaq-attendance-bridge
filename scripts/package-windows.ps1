@@ -9,6 +9,11 @@ $ZipPath = Join-Path $Root 'dist-packages\AfaqAttendanceBridge-win-x64.zip'
 $NodeZip = Join-Path $BuildDir 'node-win-x64.zip'
 $WinSwUrl = 'https://github.com/winsw/winsw/releases/download/v3.0.0-alpha.11/WinSW-x64.exe'
 
+function Assert-FileExists([string]$Path, [string]$Label) {
+  if (-not (Test-Path $Path)) { throw "$Label not found: $Path" }
+  if ((Get-Item $Path).Length -le 0) { throw "$Label is empty: $Path" }
+}
+
 Write-Host '==> npm run build'
 npm run build
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
@@ -35,15 +40,19 @@ Write-Host '==> pkg executable'
 npm run package:exe
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
-Copy-Item (Join-Path $BuildDir 'AfaqAttendanceBridge.exe') (Join-Path $StageDir 'AfaqAttendanceBridge.exe')
+$pkgExe = Join-Path $BuildDir 'AfaqAttendanceBridge.exe'
+Assert-FileExists $pkgExe 'pkg output'
+Copy-Item $pkgExe (Join-Path $StageDir 'AfaqAttendanceBridge.exe')
 
 Write-Host '==> portable Node fallback'
 if (-not (Test-Path $NodeZip)) {
   $nodeUrl = 'https://nodejs.org/dist/v20.18.0/node-v20.18.0-win-x64.zip'
   Invoke-WebRequest -Uri $nodeUrl -OutFile $NodeZip -UseBasicParsing
 }
+Assert-FileExists $NodeZip 'Node portable zip'
 Expand-Archive -Path $NodeZip -DestinationPath (Join-Path $BuildDir 'node-extract') -Force
 $nodeExe = Get-ChildItem -Path (Join-Path $BuildDir 'node-extract') -Recurse -Filter 'node.exe' | Select-Object -First 1
+if (-not $nodeExe) { throw 'node.exe not found in Node portable archive' }
 Copy-Item $nodeExe.FullName (Join-Path $StageDir 'node\node.exe')
 
 Write-Host '==> WinSW'
@@ -51,6 +60,7 @@ $winswDest = Join-Path $StageDir 'service\winsw\WinSW-x64.exe'
 if (-not (Test-Path $winswDest)) {
   Invoke-WebRequest -Uri $WinSwUrl -OutFile $winswDest -UseBasicParsing
 }
+Assert-FileExists $winswDest 'WinSW-x64.exe'
 
 Write-Host '==> stage files'
 Copy-Item -Recurse (Join-Path $Root 'dist') (Join-Path $StageDir 'dist')
@@ -64,8 +74,13 @@ foreach ($bat in $batScripts) {
   Copy-Item (Join-Path $Root $bat) (Join-Path $StageDir $bat)
 }
 
+Assert-FileExists (Join-Path $StageDir 'AfaqAttendanceBridge.exe') 'staged AfaqAttendanceBridge.exe'
+Assert-FileExists (Join-Path $StageDir 'node\node.exe') 'staged node.exe'
+Assert-FileExists (Join-Path $StageDir 'dist\main.js') 'staged dist\main.js'
+
 if (Test-Path $ZipPath) { Remove-Item -Force $ZipPath }
-Compress-Archive -Path $StageDir -DestinationPath $ZipPath -Force
+# Flat ZIP root: extract directly into C:\AfaqAttendanceBridge without extra nested folder.
+Compress-Archive -Path (Join-Path $StageDir '*') -DestinationPath $ZipPath -Force
 
 $hashBytes = [System.Security.Cryptography.SHA256]::Create().ComputeHash([System.IO.File]::ReadAllBytes($ZipPath))
 $hashHex = [BitConverter]::ToString($hashBytes).Replace('-', '').ToLowerInvariant()
@@ -75,22 +90,37 @@ Set-Content -Path (Join-Path $Root 'dist-packages\SHA256SUMS.txt') -Value $hashL
 Write-Host "==> Package ready: $ZipPath"
 Write-Host $hashLine
 
-# Verify contents
+# Verify contents (flat root — no AfaqAttendanceBridge/ wrapper prefix)
 $required = @(
   'AfaqAttendanceBridge.exe',
-  'node\node.exe',
-  'dist\main.js',
+  'node/node.exe',
+  'dist/main.js',
+  'service/winsw/WinSW-x64.exe',
+  'service/winsw/AfaqAttendanceBridge.xml',
   'config.example.json',
   'README_INSTALL.md',
+  'run-once.bat',
   'install-service.bat',
-  'run-once.bat'
+  'uninstall-service.bat',
+  'status.bat',
+  'data/',
+  'logs/'
 )
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zip = [System.IO.Compression.ZipFile]::OpenRead($ZipPath)
 foreach ($item in $required) {
-  $pattern = ($item -replace '\\', '/')
-  $found = $zip.Entries | Where-Object { ($_.FullName -replace '\\', '/') -like "*$pattern" }
+  $pattern = $item.TrimEnd('/')
+  $found = $zip.Entries | Where-Object {
+    $name = ($_.FullName -replace '\\', '/').TrimEnd('/')
+    if ($item.EndsWith('/')) {
+      $name -eq $pattern -or $name -like "$pattern/*"
+    } else {
+      $name -eq $pattern -or $name -like "*/$pattern"
+    }
+  }
   if (-not $found) { throw "Missing in ZIP: $item" }
 }
+$nestedRoot = $zip.Entries | Where-Object { ($_.FullName -replace '\\', '/') -match '^AfaqAttendanceBridge/' }
+if ($nestedRoot) { throw 'ZIP must use flat root layout (no AfaqAttendanceBridge/ wrapper folder)' }
 $zip.Dispose()
 Write-Host '==> ZIP verification passed'

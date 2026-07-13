@@ -2,19 +2,46 @@
 
 For office IT staff (no programming knowledge required).
 
+## Correct download (read this first)
+
+**Download only:**
+
+- `AfaqAttendanceBridge-win-x64.zip` from [GitHub Releases](https://github.com/asimsana121-del/afaq-attendance-bridge/releases)
+
+**Do NOT download:**
+
+- Source code (zip)
+- Source code (tar.gz)
+
+Those source archives contain no `AfaqAttendanceBridge.exe`, no `node\node.exe`, and no `WinSW-x64.exe`.
+
+**After extraction**, confirm these files exist **in the same folder as the `.bat` files** (e.g. `C:\AfaqAttendanceBridge\`):
+
+| File | Required |
+|------|----------|
+| `AfaqAttendanceBridge.exe` | Yes |
+| `node\node.exe` | Yes |
+| `service\winsw\WinSW-x64.exe` | Yes |
+
+If any are missing, you downloaded the wrong file or extracted to the wrong folder.
+
 ## 1. Download
 
 Download **AfaqAttendanceBridge-win-x64.zip** from:
 
 https://github.com/asimsana121-del/afaq-attendance-bridge/releases
 
+Use the latest release (v0.1.1 or newer).
+
 ## 2. Extract
 
-Extract the ZIP to:
+Extract the ZIP **directly** to:
 
 ```
 C:\AfaqAttendanceBridge
 ```
+
+After extract, `run-once.bat` and `AfaqAttendanceBridge.exe` must be **directly** in `C:\AfaqAttendanceBridge\` — not in a nested subfolder.
 
 ## 3. Configure
 

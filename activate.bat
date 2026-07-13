@@ -1,14 +1,15 @@
 @echo off
 setlocal
-cd /d "%~dp0"
+set "APP_DIR=%~dp0"
+cd /d "%APP_DIR%"
 echo Activating bridge...
 
-if exist "AfaqAttendanceBridge.exe" (
-  AfaqAttendanceBridge.exe activate
-) else if exist "node\node.exe" (
-  node\node.exe dist\main.js activate
+if exist "%APP_DIR%AfaqAttendanceBridge.exe" (
+  "%APP_DIR%AfaqAttendanceBridge.exe" activate
+) else if exist "%APP_DIR%node\node.exe" if exist "%APP_DIR%dist\main.js" (
+  "%APP_DIR%node\node.exe" "%APP_DIR%dist\main.js" activate
 ) else (
-  echo ERROR: No executable found.
+  echo ERROR: Missing runtime. Please download AfaqAttendanceBridge-win-x64.zip from GitHub Releases, not Source code zip.
   pause
   exit /b 1
 )

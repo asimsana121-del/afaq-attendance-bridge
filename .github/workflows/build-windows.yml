@@ -29,6 +29,9 @@ jobs:
       - name: Package Windows ZIP
         run: npm run package:windows
 
+      - name: Package integrity test
+        run: node --test test/package-integrity.test.js
+
       - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
